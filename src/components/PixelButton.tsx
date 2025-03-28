@@ -3,7 +3,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 interface PixelButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'success' | 'danger';
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'neon';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
 }
@@ -21,6 +21,7 @@ const PixelButton = ({
     secondary: 'bg-retro-pixel-purple hover:bg-retro-pixel-purple/90 border-retro-pixel-dark',
     success: 'bg-retro-pixel-green hover:bg-retro-pixel-green/90 border-retro-pixel-dark',
     danger: 'bg-retro-pixel-red hover:bg-retro-pixel-red/90 border-retro-pixel-dark',
+    neon: 'bg-retro-neon-pink hover:bg-retro-neon-blue border-retro-neon-yellow text-retro-neon-yellow hover:text-retro-neon-pink shadow-[0_0_10px_rgba(255,0,255,0.7)] hover:shadow-[0_0_15px_rgba(0,255,255,0.8)]',
   };
 
   // Define size classes

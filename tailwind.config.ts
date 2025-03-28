@@ -75,6 +75,15 @@ export default {
 					'pixel-gray': '#6B7280',
 					'pixel-dark': '#1D1D27',
 					'pixel-light': '#F1F0FB',
+					// Neon 90s arcade colors
+					'neon-pink': '#FF00FF',
+					'neon-blue': '#00FFFF',
+					'neon-green': '#00FF00',
+					'neon-yellow': '#FFFF00',
+					'neon-orange': '#FF6600',
+					'neon-purple': '#9900FF',
+					'arcade-black': '#000000',
+					'arcade-blue': '#0000AA',
 				}
 			},
 			borderRadius: {
@@ -102,6 +111,31 @@ export default {
 				'pixel-shine': {
 					'0%': { backgroundPosition: '200% center' },
 					'100%': { backgroundPosition: '-200% center' }
+				},
+				'neon-glow': {
+					'0%, 100%': { 
+						boxShadow: '0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 15px #ff00ff, 0 0 20px #ff00ff',
+					},
+					'50%': { 
+						boxShadow: '0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff',
+					}
+				},
+				'pacman-move': {
+					'0%': { transform: 'translateX(0)' },
+					'100%': { transform: 'translateX(calc(100% - 20px))' }
+				},
+				'player-jump': {
+					'0%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-60px)' },
+					'100%': { transform: 'translateY(0)' }
+				},
+				'player-run': {
+					'0%': { transform: 'translateX(0)' },
+					'100%': { transform: 'translateX(20px)' }
+				},
+				'enemy-move': {
+					'0%': { transform: 'translateX(0)' },
+					'100%': { transform: 'translateX(-50px)' }
 				}
 			},
 			animation: {
@@ -109,7 +143,12 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'pixel-float': 'pixel-float 3s ease-in-out infinite',
 				'pixel-pulse': 'pixel-pulse 2s ease-in-out infinite',
-				'pixel-shine': 'pixel-shine 3s linear infinite'
+				'pixel-shine': 'pixel-shine 3s linear infinite',
+				'neon-glow': 'neon-glow 2s ease-in-out infinite',
+				'pacman-move': 'pacman-move 5s linear infinite alternate',
+				'player-jump': 'player-jump 0.5s ease-out',
+				'player-run': 'player-run 0.3s ease-in-out infinite alternate',
+				'enemy-move': 'enemy-move 3s linear infinite alternate',
 			},
 			fontFamily: {
 				'pixel': ['"Press Start 2P"', 'cursive']

@@ -27,19 +27,25 @@ const CollectibleItem = ({
   // Color and content based on type
   const collectibleStyles = {
     coin: {
-      color: 'bg-retro-pixel-yellow',
-      border: 'border-retro-pixel-brown',
-      symbol: '¤'
+      color: 'bg-retro-neon-yellow',
+      border: 'border-retro-arcade-black',
+      symbol: '¤',
+      textColor: 'text-retro-arcade-black',
+      shadow: 'shadow-[0_0_8px_rgba(255,255,0,0.7)]'
     },
     key: {
-      color: 'bg-retro-pixel-blue',
-      border: 'border-retro-pixel-dark',
-      symbol: '⚷'
+      color: 'bg-retro-neon-blue',
+      border: 'border-retro-arcade-black',
+      symbol: '⚷',
+      textColor: 'text-retro-arcade-black',
+      shadow: 'shadow-[0_0_8px_rgba(0,255,255,0.7)]'
     },
     heart: {
-      color: 'bg-retro-pixel-red',
-      border: 'border-retro-pixel-dark',
-      symbol: '♥'
+      color: 'bg-retro-neon-pink',
+      border: 'border-retro-arcade-black',
+      symbol: '♥',
+      textColor: 'text-retro-arcade-black',
+      shadow: 'shadow-[0_0_8px_rgba(255,0,255,0.7)]'
     }
   };
 
@@ -51,6 +57,8 @@ const CollectibleItem = ({
         className={cn(
           style.color,
           style.border,
+          style.textColor,
+          style.shadow,
           'flex items-center justify-center border-2',
           'font-pixel select-none',
           animated && 'animate-pixel-float',
@@ -61,7 +69,7 @@ const CollectibleItem = ({
         {style.symbol}
       </div>
       {count !== undefined && (
-        <span className="ml-2 font-pixel text-retro-pixel-light">
+        <span className="ml-2 font-pixel text-retro-neon-green">
           ×{count}
         </span>
       )}
