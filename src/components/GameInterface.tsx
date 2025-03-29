@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PixelButton from './PixelButton';
 import CollectibleItem from './CollectibleItem';
@@ -11,8 +11,10 @@ interface GameState {
   coins: number;
   keys: number;
   hearts: number;
+  maxHearts: number;
   level: number;
   score: number;
+  heartCooldowns: number[];
 }
 
 const GameInterface = () => {
@@ -22,68 +24,140 @@ const GameInterface = () => {
     coins: 0,
     keys: 0,
     hearts: 3,
+    maxHearts: 5,
     level: 1,
-    score: 0
+    score: 0,
+    heartCooldowns: [] // Timestamps for when hearts will regenerate
   });
 
-  // Simulated game progression
-  useEffect(() => {
-    const gameInterval = setInterval(() => {
-      setGameState(prev => ({
-        ...prev,
-        coins: prev.coins + 1,
-        score: prev.score + 10
-      }));
-    }, 3000);
-
-    return () => clearInterval(gameInterval);
+  // Update the score from the platformer game
+  const handleScoreChange = useCallback((newScore: number) => {
+    setGameState(prev => ({
+      ...prev,
+      score: newScore
+    }));
   }, []);
 
-  // Simulate collecting items with keyboard
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      switch(e.key) {
-        case 'c':
-          setGameState(prev => ({ ...prev, coins: prev.coins + 5 }));
-          toast({
-            title: "Coins collected!",
-            description: "+5 coins added to your inventory",
-            duration: 1500,
-          });
-          break;
-        case 'k':
-          setGameState(prev => ({ ...prev, keys: prev.keys + 1 }));
-          toast({
-            title: "Key found!",
-            description: "You found a new key",
-            duration: 1500,
-          });
-          break;
-        case 'h':
-          setGameState(prev => ({ ...prev, hearts: Math.min(prev.hearts + 1, 5) }));
-          toast({
-            title: "Health restored!",
-            description: "You gained an extra heart",
-            duration: 1500,
-          });
-          break;
-        case 'l':
-          setGameState(prev => ({ ...prev, level: prev.level + 1 }));
-          toast({
-            title: "Level up!",
-            description: `You advanced to level ${gameState.level + 1}`,
-            duration: 1500,
-          });
-          break;
-      }
-    };
+  // Handle losing a heart when dying in platformer
+  const handleHeartLost = useCallback(() => {
+    setGameState(prev => {
+      // Only proceed if there are hearts left
+      if (prev.hearts <= 0) return prev;
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [gameState.level, toast]);
+      const heartCooldowns = [...prev.heartCooldowns];
+      // Add cooldown - 10 minutes from now
+      const regenerateTime = Date.now() + 10 * 60 * 1000; // 10 minutes in milliseconds
+      heartCooldowns.push(regenerateTime);
+
+      toast({
+        title: "You lost a heart!",
+        description: "A heart will regenerate in 10 minutes",
+        duration: 3000,
+      });
+
+      return {
+        ...prev,
+        hearts: prev.hearts - 1,
+        heartCooldowns
+      };
+    });
+  }, [toast]);
+
+  // Check heart cooldowns every second
+  useEffect(() => {
+    const heartTimer = setInterval(() => {
+      const now = Date.now();
+      
+      setGameState(prev => {
+        // Check for expired cooldowns
+        if (prev.heartCooldowns.length === 0 || prev.hearts >= prev.maxHearts) {
+          return prev;
+        }
+
+        const activeCooldowns = [];
+        let heartsToAdd = 0;
+
+        // Check each cooldown timestamp
+        for (const timestamp of prev.heartCooldowns) {
+          if (now >= timestamp) {
+            // This heart can regenerate
+            heartsToAdd++;
+          } else {
+            // This heart is still on cooldown
+            activeCooldowns.push(timestamp);
+          }
+        }
+
+        // If no hearts regenerated, no changes needed
+        if (heartsToAdd === 0) return prev;
+
+        // Calculate new heart count, not exceeding max
+        const newHeartCount = Math.min(prev.hearts + heartsToAdd, prev.maxHearts);
+        
+        if (newHeartCount > prev.hearts) {
+          toast({
+            title: "Heart regenerated!",
+            description: `You gained ${newHeartCount - prev.hearts} heart(s)`,
+            duration: 3000,
+          });
+        }
+
+        return {
+          ...prev,
+          hearts: newHeartCount,
+          heartCooldowns: activeCooldowns
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(heartTimer);
+  }, [toast]);
+
+  // Collect key when finding one in the platformer
+  const handleFindKey = useCallback(() => {
+    setGameState(prev => ({ 
+      ...prev, 
+      keys: prev.keys + 1 
+    }));
+    
+    toast({
+      title: "Key found!",
+      description: "You found a new key",
+      duration: 1500,
+    });
+  }, [toast]);
+
+  // Handle game over
+  const handleGameOver = useCallback(() => {
+    // Any additional game over logic can go here
+  }, []);
+
+  // Level up when score reaches certain thresholds
+  useEffect(() => {
+    const calculateLevel = (score: number) => Math.floor(score / 1000) + 1;
+    const newLevel = calculateLevel(gameState.score);
+    
+    if (newLevel > gameState.level) {
+      setGameState(prev => ({ ...prev, level: newLevel }));
+      
+      toast({
+        title: "Level up!",
+        description: `You advanced to level ${newLevel}`,
+        duration: 1500,
+      });
+    }
+  }, [gameState.score, gameState.level, toast]);
 
   const handleExit = () => {
     navigate('/');
+  };
+
+  // Format cooldown time
+  const formatCooldownTime = (timestamp: number) => {
+    const remainingMs = Math.max(0, timestamp - Date.now());
+    const minutes = Math.floor(remainingMs / (60 * 1000));
+    const seconds = Math.floor((remainingMs % (60 * 1000)) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -102,17 +176,24 @@ const GameInterface = () => {
           </div>
           
           <div className="flex space-x-1">
-            {[...Array(5)].map((_, i) => (
+            {[...Array(gameState.maxHearts)].map((_, i) => (
               <CollectibleItem 
                 key={i} 
                 type="heart" 
                 size="sm" 
-                animated={false}
+                animated={i < gameState.hearts}
                 className={i < gameState.hearts ? "text-retro-neon-pink animate-pulse" : "opacity-30"}
               />
             ))}
           </div>
         </div>
+        
+        {/* Hearts cooldown indicator */}
+        {gameState.heartCooldowns.length > 0 && (
+          <div className="mt-1 text-xs font-pixel text-retro-neon-yellow">
+            Next heart in: {formatCooldownTime(gameState.heartCooldowns[0])}
+          </div>
+        )}
       </div>
 
       {/* Game Area */}
@@ -139,19 +220,23 @@ const GameInterface = () => {
             </div>
           </div>
           
-          {/* Mario-style Platformer Game */}
-          <PlatformerGame className="mb-6" />
+          {/* Dino-style Platformer Game */}
+          <PlatformerGame 
+            className="mb-6" 
+            onScoreChange={handleScoreChange}
+            onHeartLost={handleHeartLost}
+            onGameOver={handleGameOver}
+          />
           
           <div className="bg-retro-arcade-blue/20 p-3 border border-retro-neon-blue mb-6">
             <p className="font-pixel text-xs mb-2 text-retro-neon-green">
               GAME CONTROLS:
             </p>
             <div className="grid grid-cols-2 gap-2 text-left text-xs font-pixel">
-              <div className="text-retro-neon-pink">C = Collect coins</div>
-              <div className="text-retro-neon-yellow">K = Find key</div>
-              <div className="text-retro-neon-pink">H = Gain heart</div>
-              <div className="text-retro-neon-yellow">L = Level up</div>
-              <div className="text-retro-neon-pink col-span-2">SPACE/UP/CLICK = Jump in platformer</div>
+              <div className="text-retro-neon-pink">SPACE/UP/CLICK = Jump</div>
+              <div className="text-retro-neon-yellow">DOWN = Duck</div>
+              <div className="text-retro-neon-pink">R = Restart after game over</div>
+              <div className="text-retro-neon-yellow">Hearts regenerate every 10 min</div>
             </div>
           </div>
           
@@ -163,7 +248,7 @@ const GameInterface = () => {
       
       {/* Footer */}
       <div className="bg-retro-arcade-black text-center py-2 border-t border-retro-neon-blue text-xs font-pixel text-retro-neon-green">
-        INSERT COIN TO CONTINUE - PRESS C FOR COINS
+        JUMP OBSTACLES TO SURVIVE - COLLECT COINS FOR POINTS
       </div>
     </div>
   );

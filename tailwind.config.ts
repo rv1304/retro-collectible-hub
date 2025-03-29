@@ -135,7 +135,11 @@ export default {
 				},
 				'enemy-move': {
 					'0%': { transform: 'translateX(0)' },
-					'100%': { transform: 'translateX(-50px)' }
+					'100%': { transform: 'translateX(-100%)' }
+				},
+				'bounce-small': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-3px)' }
 				}
 			},
 			animation: {
@@ -146,9 +150,10 @@ export default {
 				'pixel-shine': 'pixel-shine 3s linear infinite',
 				'neon-glow': 'neon-glow 2s ease-in-out infinite',
 				'pacman-move': 'pacman-move 5s linear infinite alternate',
-				'player-jump': 'player-jump 0.5s ease-out',
+				'player-jump': 'player-jump 0.6s ease-out',
 				'player-run': 'player-run 0.3s ease-in-out infinite alternate',
-				'enemy-move': 'enemy-move 3s linear infinite alternate',
+				'enemy-move': 'enemy-move 3s linear infinite',
+				'bounce-small': 'bounce-small 0.5s ease-in-out infinite',
 			},
 			fontFamily: {
 				'pixel': ['"Press Start 2P"', 'cursive']

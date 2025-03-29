@@ -31,21 +31,24 @@ const CollectibleItem = ({
       border: 'border-retro-arcade-black',
       symbol: '¤',
       textColor: 'text-retro-arcade-black',
-      shadow: 'shadow-[0_0_8px_rgba(255,255,0,0.7)]'
+      shadow: 'shadow-[0_0_8px_rgba(255,255,0,0.7)]',
+      shapeClass: 'rounded-full' // Coins are round
     },
     key: {
       color: 'bg-retro-neon-blue',
       border: 'border-retro-arcade-black',
       symbol: '⚷',
       textColor: 'text-retro-arcade-black',
-      shadow: 'shadow-[0_0_8px_rgba(0,255,255,0.7)]'
+      shadow: 'shadow-[0_0_8px_rgba(0,255,255,0.7)]',
+      shapeClass: '' // Keys are normal shapes
     },
     heart: {
       color: 'bg-retro-neon-pink',
       border: 'border-retro-arcade-black',
       symbol: '♥',
       textColor: 'text-retro-arcade-black',
-      shadow: 'shadow-[0_0_8px_rgba(255,0,255,0.7)]'
+      shadow: 'shadow-[0_0_8px_rgba(255,0,255,0.7)]',
+      shapeClass: 'heart-shape' // Hearts use custom shape
     }
   };
 
@@ -59,6 +62,7 @@ const CollectibleItem = ({
           style.border,
           style.textColor,
           style.shadow,
+          style.shapeClass,
           'flex items-center justify-center border-2',
           'font-pixel select-none',
           animated && 'animate-pixel-float',
