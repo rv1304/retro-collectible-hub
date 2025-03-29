@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useGameLogic } from '@/hooks/useGameLogic';
 import { useGameControls } from '@/hooks/useGameControls';
-import { GameObstacle, GameCoin } from '@/types/gameTypes';
+import { GameObstacle, GameCoin, GamePowerUp } from '@/types/gameTypes';
 
 interface PlatformerGameProps {
   className?: string;
@@ -11,6 +11,7 @@ interface PlatformerGameProps {
   onGameOver?: () => void;
   onHeartLost?: () => void;
   onCoinCollected?: (coins: number) => void;
+  onPowerUpCollected?: (type: string) => void;
 }
 
 const PlatformerGame = ({ 
@@ -18,7 +19,8 @@ const PlatformerGame = ({
   onScoreChange, 
   onGameOver,
   onHeartLost,
-  onCoinCollected 
+  onCoinCollected,
+  onPowerUpCollected
 }: PlatformerGameProps) => {
   const gameRef = useRef<HTMLDivElement>(null);
   
@@ -30,20 +32,28 @@ const PlatformerGame = ({
     gameOver,
     obstacles,
     coins,
+    powerUps,
     groundPosition,
     gameSpeed,
+    playerStatus,
     resetGame,
     setIsJumping,
     setIsDucking,
     setGameOver,
     setObstacles,
     setCoins,
+    setPowerUps,
     setGroundPosition,
     setGameSpeed,
     setScore,
+    setPlayerStatus,
     frameRef,
     lastObstacleRef,
-    lastCoinRef
+    lastCoinRef,
+    lastPowerUpRef,
+    lastTimeRef,
+    applyShield,
+    updateShieldTimer
   } = useGameLogic({ onScoreChange });
   
   const { handleJump, handleDuck } = useGameControls({
@@ -58,6 +68,7 @@ const PlatformerGame = ({
   const playerHeight = 40;
   const playerBottom = 10;
   const obstacleWidth = 25;
+  const powerUpWidth = 25;
   
   // Check for collisions between player and game elements
   const checkCollision = () => {
@@ -71,6 +82,9 @@ const PlatformerGame = ({
     
     // Check coin collisions
     checkCoinCollisions(playerPosition);
+    
+    // Check power-up collisions
+    checkPowerUpCollisions(playerPosition);
   };
   
   // Handle obstacle collision detection
@@ -90,9 +104,22 @@ const PlatformerGame = ({
         const cactusCollision = obstacle.type === 'cactus' && !isJumping;
         
         if ((birdCollision || cactusCollision) && !gameOver) {
-          setGameOver(true);
-          if (onHeartLost) onHeartLost();
-          if (onGameOver) onGameOver();
+          // Check if player has shield
+          if (playerStatus.hasShield) {
+            // Use shield to block damage
+            setPlayerStatus({
+              hasShield: false,
+              shieldTimeRemaining: 0
+            });
+            
+            // Remove the obstacle
+            setObstacles(prev => prev.filter((_, i) => i !== index));
+          } else {
+            // No shield, game over
+            setGameOver(true);
+            if (onHeartLost) onHeartLost();
+            if (onGameOver) onGameOver();
+          }
         }
       }
     });
@@ -124,6 +151,43 @@ const PlatformerGame = ({
     });
   };
   
+  // Handle power-up collision detection
+  const checkPowerUpCollisions = (playerPosition: number) => {
+    powerUps.forEach((powerUp, index) => {
+      // Remove off-screen power-ups
+      if (powerUp.position + powerUpWidth < 0) {
+        setPowerUps(prev => prev.filter((_, i) => i !== index));
+        return;
+      }
+      
+      if (!powerUp.collected && isColliding(playerPosition, powerUp.position, powerUpWidth)) {
+        // Automatically collect power-up
+        setPowerUps(prev => prev.map((p, i) => 
+          i === index ? { ...p, collected: true } : p
+        ));
+        
+        // Apply power-up effect
+        applyPowerUpEffect(powerUp.type);
+        
+        // Trigger power-up collection callback
+        if (onPowerUpCollected) {
+          onPowerUpCollected(powerUp.type);
+        }
+      }
+    });
+  };
+  
+  // Apply power-up effect based on type
+  const applyPowerUpEffect = (type: string) => {
+    switch (type) {
+      case 'shield':
+        applyShield();
+        break;
+      default:
+        console.warn(`Unknown power-up type: ${type}`);
+    }
+  };
+  
   // Update score when collecting a coin
   const updateScoreForCoinCollection = () => {
     setScore(prev => {
@@ -143,6 +207,10 @@ const PlatformerGame = ({
     if (gameOver) return;
     
     const gameLoop = () => {
+      const now = performance.now();
+      const deltaTime = now - lastTimeRef.current;
+      lastTimeRef.current = now;
+      
       // Move ground
       setGroundPosition(prev => (prev - gameSpeed) % 100);
       
@@ -152,7 +220,11 @@ const PlatformerGame = ({
       // Generate and manage game elements
       generateObstacles();
       generateCoins();
+      generatePowerUps();
       moveGameElements();
+      
+      // Update shield timer
+      updateShieldTimer(deltaTime);
       
       // Check for collisions
       checkCollision();
@@ -161,12 +233,13 @@ const PlatformerGame = ({
       frameRef.current = requestAnimationFrame(gameLoop);
     };
     
+    lastTimeRef.current = performance.now();
     frameRef.current = requestAnimationFrame(gameLoop);
     
     return () => {
       cancelAnimationFrame(frameRef.current);
     };
-  }, [gameOver, isDucking, isJumping]);
+  }, [gameOver, isDucking, isJumping, playerStatus]);
   
   // Increment score and adjust game speed
   const incrementScore = () => {
@@ -212,7 +285,25 @@ const PlatformerGame = ({
     }
   };
   
-  // Move obstacles and coins
+  // Generate power-ups
+  const generatePowerUps = () => {
+    const now = Date.now();
+    // Make power-ups rarer than coins (every 10-20 seconds)
+    if (now - lastPowerUpRef.current > 10000 + Math.random() * 10000) {
+      lastPowerUpRef.current = now;
+      
+      setPowerUps(prev => [
+        ...prev, 
+        { 
+          type: 'shield',
+          position: gameRef.current?.offsetWidth || 800, 
+          collected: false 
+        }
+      ]);
+    }
+  };
+  
+  // Move obstacles, coins, and power-ups
   const moveGameElements = () => {
     // Move obstacles
     setObstacles(prev => 
@@ -227,6 +318,14 @@ const PlatformerGame = ({
       prev.map(coin => ({
         ...coin,
         position: coin.position - gameSpeed
+      }))
+    );
+    
+    // Move power-ups
+    setPowerUps(prev => 
+      prev.map(powerUp => ({
+        ...powerUp,
+        position: powerUp.position - gameSpeed
       }))
     );
   };
@@ -266,6 +365,12 @@ const PlatformerGame = ({
       cancelAnimationFrame(frameRef.current);
     };
   }, []);
+  
+  // Get shield time as percentage
+  const getShieldTimePercentage = () => {
+    if (!playerStatus.hasShield) return 0;
+    return (playerStatus.shieldTimeRemaining / 10000) * 100; // 10000ms is max shield time
+  };
   
   // Render the game
   return (
@@ -312,15 +417,32 @@ const PlatformerGame = ({
         style={{ 
           bottom: `${playerBottom}px`,
           transition: "height 0.1s",
-          backgroundColor: '#FF5722',
+          backgroundColor: playerStatus.hasShield ? '#00FFFF' : '#FF5722',
           borderRadius: '4px',
           border: '2px solid #000',
-          boxShadow: '0 0 10px rgba(255,87,34,0.7)'
+          boxShadow: playerStatus.hasShield 
+            ? '0 0 15px rgba(0,255,255,0.9)' 
+            : '0 0 10px rgba(255,87,34,0.7)'
         }}
       >
         {/* Eyes */}
         <div className="absolute top-1 right-1 w-2 h-2 bg-white rounded-full"></div>
+        
+        {/* Shield indicator */}
+        {playerStatus.hasShield && (
+          <div className="absolute inset-0 border-2 border-retro-neon-blue rounded-sm animate-pulse" />
+        )}
       </div>
+      
+      {/* Shield timer */}
+      {playerStatus.hasShield && (
+        <div className="absolute top-10 left-2 w-20 h-2 bg-retro-arcade-black border border-retro-neon-blue">
+          <div 
+            className="h-full bg-retro-neon-blue"
+            style={{ width: `${getShieldTimePercentage()}%` }}
+          />
+        </div>
+      )}
       
       {/* Obstacles */}
       {obstacles.map((obstacle, index) => (
@@ -348,7 +470,7 @@ const PlatformerGame = ({
       {coins.map((coin, index) => (
         !coin.collected && (
           <div 
-            key={index}
+            key={`coin-${index}`}
             className="absolute"
             style={{
               left: `${coin.position}px`,
@@ -362,6 +484,34 @@ const PlatformerGame = ({
               animation: 'pixel-pulse 0.5s infinite alternate'
             }}
           />
+        )
+      ))}
+      
+      {/* Power-ups */}
+      {powerUps.map((powerUp, index) => (
+        !powerUp.collected && (
+          <div 
+            key={`powerup-${index}`}
+            className="absolute"
+            style={{
+              left: `${powerUp.position}px`,
+              bottom: '60px',
+              width: '20px',
+              height: '20px',
+              backgroundColor: '#00FFFF',
+              borderRadius: powerUp.type === 'shield' ? '50%' : '4px',
+              border: '2px solid #000',
+              boxShadow: '0 0 15px rgba(0,255,255,0.9)',
+              animation: 'bounce-small 0.5s infinite alternate'
+            }}
+          >
+            {/* Shield icon */}
+            {powerUp.type === 'shield' && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-6 h-6 border-t-2 border-r-2 border-l-2 border-retro-arcade-black rounded-t-full transform rotate-180" />
+              </div>
+            )}
+          </div>
         )
       ))}
       

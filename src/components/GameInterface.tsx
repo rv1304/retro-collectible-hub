@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PixelButton from './PixelButton';
@@ -13,6 +14,7 @@ interface GameState {
   maxHearts: number;
   level: number;
   score: number;
+  hasShield: boolean;
   heartCooldowns: number[];
 }
 
@@ -26,6 +28,7 @@ const GameInterface = () => {
     maxHearts: 5,
     level: 1,
     score: 0,
+    hasShield: false,
     heartCooldowns: [] // Timestamps for when hearts will regenerate
   });
 
@@ -177,6 +180,22 @@ const GameInterface = () => {
     });
   }, [toast]);
 
+  // New method to handle power-up collection
+  const handlePowerUpCollected = useCallback((type: string) => {
+    if (type === 'shield') {
+      setGameState(prev => ({
+        ...prev,
+        hasShield: true
+      }));
+      
+      toast({
+        title: "Shield Activated!",
+        description: "You're protected from the next obstacle hit",
+        duration: 3000,
+      });
+    }
+  }, [toast]);
+
   return (
     <div className="min-h-screen bg-retro-arcade-black text-retro-neon-green flex flex-col">
       {/* Top HUD */}
@@ -204,6 +223,14 @@ const GameInterface = () => {
             ))}
           </div>
         </div>
+        
+        {/* Shield indicator */}
+        {gameState.hasShield && (
+          <div className="mt-1 flex items-center">
+            <div className="w-5 h-5 bg-retro-neon-blue rounded-full mr-2 animate-pulse"></div>
+            <span className="text-xs font-pixel text-retro-neon-blue">SHIELD ACTIVE</span>
+          </div>
+        )}
         
         {/* Hearts cooldown indicator */}
         {gameState.heartCooldowns.length > 0 && (
@@ -243,7 +270,8 @@ const GameInterface = () => {
             onScoreChange={handleScoreChange}
             onHeartLost={handleHeartLost}
             onGameOver={handleGameOver}
-            onCoinCollected={handleCoinCollected}  // Add the new coin collection handler
+            onCoinCollected={handleCoinCollected}
+            onPowerUpCollected={handlePowerUpCollected}
           />
           
           <div className="bg-retro-arcade-blue/20 p-3 border border-retro-neon-blue mb-6">
@@ -255,6 +283,7 @@ const GameInterface = () => {
               <div className="text-retro-neon-yellow">DOWN = Duck</div>
               <div className="text-retro-neon-pink">R = Restart after game over</div>
               <div className="text-retro-neon-yellow">Hearts regenerate every 10 min</div>
+              <div className="text-retro-neon-blue">Collect shields for protection</div>
             </div>
           </div>
           
@@ -266,7 +295,7 @@ const GameInterface = () => {
       
       {/* Footer */}
       <div className="bg-retro-arcade-black text-center py-2 border-t border-retro-neon-blue text-xs font-pixel text-retro-neon-green">
-        JUMP OBSTACLES TO SURVIVE - COLLECT COINS FOR POINTS
+        JUMP OBSTACLES TO SURVIVE - COLLECT COINS & POWER-UPS
       </div>
     </div>
   );

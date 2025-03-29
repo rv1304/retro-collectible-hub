@@ -1,6 +1,6 @@
 
 import { useState, useRef, useCallback } from 'react';
-import { GameObstacle, GameCoin } from '@/types/gameTypes';
+import { GameObstacle, GameCoin, GamePowerUp, PlayerStatus } from '@/types/gameTypes';
 
 interface UseGameLogicProps {
   onScoreChange?: (score: number) => void;
@@ -14,13 +14,20 @@ export const useGameLogic = ({ onScoreChange }: UseGameLogicProps) => {
   const [gameOver, setGameOver] = useState(false);
   const [obstacles, setObstacles] = useState<GameObstacle[]>([]);
   const [coins, setCoins] = useState<GameCoin[]>([]);
+  const [powerUps, setPowerUps] = useState<GamePowerUp[]>([]);
   const [groundPosition, setGroundPosition] = useState(0);
   const [gameSpeed, setGameSpeed] = useState(5);
+  const [playerStatus, setPlayerStatus] = useState<PlayerStatus>({
+    hasShield: false,
+    shieldTimeRemaining: 0
+  });
   
   // Refs for animation and timing
   const frameRef = useRef(0);
   const lastObstacleRef = useRef(0);
   const lastCoinRef = useRef(0);
+  const lastPowerUpRef = useRef(0);
+  const lastTimeRef = useRef(0);
   
   // Reset the game
   const resetGame = useCallback(() => {
@@ -30,13 +37,49 @@ export const useGameLogic = ({ onScoreChange }: UseGameLogicProps) => {
     setGameOver(false);
     setObstacles([]);
     setCoins([]);
+    setPowerUps([]);
     setGroundPosition(0);
     setGameSpeed(5);
+    setPlayerStatus({
+      hasShield: false,
+      shieldTimeRemaining: 0
+    });
     lastObstacleRef.current = 0;
     lastCoinRef.current = 0;
+    lastPowerUpRef.current = 0;
+    lastTimeRef.current = 0;
     
     if (onScoreChange) onScoreChange(0);
   }, [onScoreChange]);
+  
+  // Apply shield power-up
+  const applyShield = useCallback(() => {
+    setPlayerStatus({
+      hasShield: true,
+      shieldTimeRemaining: 10000 // 10 seconds
+    });
+  }, []);
+  
+  // Update shield timer
+  const updateShieldTimer = useCallback((deltaTime: number) => {
+    if (playerStatus.hasShield && playerStatus.shieldTimeRemaining > 0) {
+      const newTimeRemaining = playerStatus.shieldTimeRemaining - deltaTime;
+      
+      if (newTimeRemaining <= 0) {
+        // Shield expired
+        setPlayerStatus({
+          hasShield: false,
+          shieldTimeRemaining: 0
+        });
+      } else {
+        // Update shield time
+        setPlayerStatus({
+          ...playerStatus,
+          shieldTimeRemaining: newTimeRemaining
+        });
+      }
+    }
+  }, [playerStatus]);
   
   return {
     // State
@@ -46,8 +89,10 @@ export const useGameLogic = ({ onScoreChange }: UseGameLogicProps) => {
     gameOver,
     obstacles,
     coins,
+    powerUps,
     groundPosition,
     gameSpeed,
+    playerStatus,
     
     // State setters
     setIsJumping,
@@ -56,15 +101,21 @@ export const useGameLogic = ({ onScoreChange }: UseGameLogicProps) => {
     setGameOver,
     setObstacles,
     setCoins,
+    setPowerUps,
     setGroundPosition,
     setGameSpeed,
+    setPlayerStatus,
     
     // Refs
     frameRef,
     lastObstacleRef,
     lastCoinRef,
+    lastPowerUpRef,
+    lastTimeRef,
     
     // Methods
-    resetGame
+    resetGame,
+    applyShield,
+    updateShieldTimer
   };
 };
