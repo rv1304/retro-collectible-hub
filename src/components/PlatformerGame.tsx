@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -7,13 +6,15 @@ interface PlatformerGameProps {
   onScoreChange?: (score: number) => void;
   onGameOver?: () => void;
   onHeartLost?: () => void;
+  onCoinCollected?: (coins: number) => void;
 }
 
 const PlatformerGame = ({ 
   className, 
   onScoreChange, 
   onGameOver,
-  onHeartLost 
+  onHeartLost,
+  onCoinCollected 
 }: PlatformerGameProps) => {
   // Game state
   const [isJumping, setIsJumping] = useState(false);
@@ -108,14 +109,12 @@ const PlatformerGame = ({
           obstaclePosition > playerPosition - obstacleWidth && 
           obstaclePosition < playerPosition + playerWidth
         ) {
-          // Check vertical collision - different for ducking
+          // More precise collision detection
           const playerCurrentHeight = isDucking ? playerHeight / 2 : playerHeight;
           const playerTop = 100 - playerBottom - playerCurrentHeight;
           
-          // Bird obstacles fly higher
           const obstacleTop = obstacle.type === 'bird' ? 50 : 100 - playerBottom - obstacleWidth;
           
-          // Adjust collision detection based on jumping/ducking
           const birdCollision = obstacle.type === 'bird' && !isDucking && !isJumping;
           const cactusCollision = obstacle.type === 'cactus' && !isJumping;
           
@@ -128,13 +127,13 @@ const PlatformerGame = ({
           }
         }
         
-        // Check if obstacle is off-screen to remove it
+        // Remove off-screen obstacles
         if (obstaclePosition + obstacleWidth < 0) {
           setObstacles(prev => prev.filter((_, i) => i !== index));
         }
       });
       
-      // Check coin collisions
+      // Enhanced coin collection logic
       coins.forEach((coin, index) => {
         const coinPosition = coin.position;
         
@@ -143,16 +142,22 @@ const PlatformerGame = ({
           coinPosition > playerPosition - 20 && 
           coinPosition < playerPosition + playerWidth
         ) {
-          // If player is at right height to collect coin
+          // Automatically collect coin
           setCoins(prev => prev.map((c, i) => 
             i === index ? { ...c, collected: true } : c
           ));
           
+          // Update score and trigger coin collection callback
           setScore(prev => {
             const newScore = prev + 50;
             if (onScoreChange) onScoreChange(newScore);
             return newScore;
           });
+          
+          // Trigger coin collection callback
+          if (onCoinCollected) {
+            onCoinCollected(1);  // Collect 1 coin
+          }
         }
         
         // Remove off-screen coins
@@ -289,7 +294,7 @@ const PlatformerGame = ({
         style={{ 
           bottom: `${playerBottom}px`,
           transition: "height 0.1s",
-          backgroundColor: '#FF5722', // Mario red
+          backgroundColor: '#FF5722',
           borderRadius: '4px',
           border: '2px solid #000',
           boxShadow: '0 0 10px rgba(255,87,34,0.7)'
@@ -332,7 +337,7 @@ const PlatformerGame = ({
               bottom: '60px',
               width: '15px',
               height: '15px',
-              backgroundColor: '#FFEB3B', // Bright yellow
+              backgroundColor: '#FFEB3B',
               borderRadius: '50%',
               border: '2px solid #000',
               boxShadow: '0 0 10px rgba(255,235,59,0.9)',

@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PixelButton from './PixelButton';
 import CollectibleItem from './CollectibleItem';
 import PlatformerGame from './PlatformerGame';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 // Game state interface
 interface GameState {
@@ -160,6 +159,24 @@ const GameInterface = () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // New method to handle coin collection
+  const handleCoinCollected = useCallback((coinsCollected: number) => {
+    setGameState(prev => {
+      const newCoins = prev.coins + coinsCollected;
+      
+      toast({
+        title: "Coin Collected!",
+        description: `You collected ${coinsCollected} coin(s)`,
+        duration: 1500,
+      });
+
+      return { 
+        ...prev, 
+        coins: newCoins 
+      };
+    });
+  }, [toast]);
+
   return (
     <div className="min-h-screen bg-retro-arcade-black text-retro-neon-green flex flex-col">
       {/* Top HUD */}
@@ -226,6 +243,7 @@ const GameInterface = () => {
             onScoreChange={handleScoreChange}
             onHeartLost={handleHeartLost}
             onGameOver={handleGameOver}
+            onCoinCollected={handleCoinCollected}  // Add the new coin collection handler
           />
           
           <div className="bg-retro-arcade-blue/20 p-3 border border-retro-neon-blue mb-6">
