@@ -80,6 +80,26 @@ export const useGameLogic = ({ onScoreChange }: UseGameLogicProps) => {
       }
     }
   }, [playerStatus]);
+
+  // Check if two objects are colliding with pixel-perfect precision
+  const checkPixelCollision = useCallback((
+    playerX: number, 
+    playerY: number, 
+    playerWidth: number, 
+    playerHeight: number,
+    objectX: number,
+    objectY: number,
+    objectWidth: number,
+    objectHeight: number
+  ) => {
+    // Even a 1% overlap should trigger collision
+    return (
+      playerX < objectX + objectWidth &&
+      playerX + playerWidth > objectX &&
+      playerY < objectY + objectHeight &&
+      playerY + playerHeight > objectY
+    );
+  }, []);
   
   return {
     // State
@@ -116,6 +136,7 @@ export const useGameLogic = ({ onScoreChange }: UseGameLogicProps) => {
     // Methods
     resetGame,
     applyShield,
-    updateShieldTimer
+    updateShieldTimer,
+    checkPixelCollision
   };
 };

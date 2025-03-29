@@ -53,7 +53,8 @@ const PlatformerGame = ({
     lastPowerUpRef,
     lastTimeRef,
     applyShield,
-    updateShieldTimer
+    updateShieldTimer,
+    checkPixelCollision
   } = useGameLogic({ onScoreChange });
   
   const { handleJump, handleDuck } = useGameControls({
@@ -66,29 +67,46 @@ const PlatformerGame = ({
   // Game dimensions - could be moved to a constants file in a larger project
   const playerWidth = 30;
   const playerHeight = 40;
-  const playerBottom = 10;
+  const playerBottom = 10; // Distance from bottom of screen to bottom of player
+  const groundHeight = 10; // Height of the ground
   const obstacleWidth = 25;
   const powerUpWidth = 25;
+  
+  // Calculate the player's position during a jump
+  const getPlayerY = () => {
+    if (!isJumping) return playerBottom;
+    
+    // Simple parabolic jump trajectory
+    const jumpProgress = document.querySelector('.animate-player-jump')?.getAnimationState?.()?.progress || 0;
+    const jumpHeight = 80; // Maximum jump height in pixels
+    
+    // Parabolic function: 4 * h * p * (1 - p) where p is progress from 0-1 and h is height
+    const height = 4 * jumpHeight * jumpProgress * (1 - jumpProgress);
+    return playerBottom + height;
+  };
   
   // Check for collisions between player and game elements
   const checkCollision = () => {
     if (!gameRef.current) return;
     
     const gameWidth = gameRef.current.offsetWidth;
-    const playerPosition = 60; // Fixed x position of player
+    const gameHeight = gameRef.current.offsetHeight;
+    const playerX = 60; // Fixed x position of player
+    const playerY = gameHeight - playerHeight - getPlayerY();
+    const actualPlayerHeight = isDucking ? playerHeight / 2 : playerHeight;
     
     // Check obstacle collisions
-    checkObstacleCollisions(playerPosition);
+    checkObstacleCollisions(playerX, playerY, actualPlayerHeight, gameHeight);
     
     // Check coin collisions
-    checkCoinCollisions(playerPosition);
+    checkCoinCollisions(playerX, playerY, actualPlayerHeight, gameHeight);
     
     // Check power-up collisions
-    checkPowerUpCollisions(playerPosition);
+    checkPowerUpCollisions(playerX, playerY, actualPlayerHeight, gameHeight);
   };
   
   // Handle obstacle collision detection
-  const checkObstacleCollisions = (playerPosition: number) => {
+  const checkObstacleCollisions = (playerX: number, playerY: number, actualPlayerHeight: number, gameHeight: number) => {
     obstacles.forEach((obstacle, index) => {
       // Remove off-screen obstacles
       if (obstacle.position + obstacleWidth < 0) {
@@ -96,14 +114,21 @@ const PlatformerGame = ({
         return;
       }
       
-      if (isColliding(playerPosition, obstacle.position, obstacleWidth)) {
-        const playerCurrentHeight = isDucking ? playerHeight / 2 : playerHeight;
-        const obstacleTop = obstacle.type === 'bird' ? 50 : 100 - playerBottom - obstacleWidth;
-        
-        const birdCollision = obstacle.type === 'bird' && !isDucking && !isJumping;
-        const cactusCollision = obstacle.type === 'cactus' && !isJumping;
-        
-        if ((birdCollision || cactusCollision) && !gameOver) {
+      const obstacleX = obstacle.position;
+      const obstacleHeight = obstacle.type === 'cactus' ? 30 : 20;
+      const obstacleY = gameHeight - groundHeight - obstacleHeight - (obstacle.type === 'bird' ? 30 : 0);
+      
+      if (checkPixelCollision(
+        playerX, 
+        playerY, 
+        playerWidth, 
+        actualPlayerHeight,
+        obstacleX,
+        obstacleY,
+        obstacleWidth,
+        obstacleHeight
+      )) {
+        if (!gameOver) {
           // Check if player has shield
           if (playerStatus.hasShield) {
             // Use shield to block damage
@@ -126,7 +151,7 @@ const PlatformerGame = ({
   };
   
   // Handle coin collision detection
-  const checkCoinCollisions = (playerPosition: number) => {
+  const checkCoinCollisions = (playerX: number, playerY: number, actualPlayerHeight: number, gameHeight: number) => {
     coins.forEach((coin, index) => {
       // Remove off-screen coins
       if (coin.position + 20 < 0) {
@@ -134,7 +159,20 @@ const PlatformerGame = ({
         return;
       }
       
-      if (!coin.collected && isColliding(playerPosition, coin.position, 20)) {
+      const coinX = coin.position;
+      const coinY = gameHeight - groundHeight - 60; // Position coin above ground
+      const coinSize = 15;
+      
+      if (!coin.collected && checkPixelCollision(
+        playerX,
+        playerY,
+        playerWidth,
+        actualPlayerHeight,
+        coinX,
+        coinY,
+        coinSize,
+        coinSize
+      )) {
         // Automatically collect coin
         setCoins(prev => prev.map((c, i) => 
           i === index ? { ...c, collected: true } : c
@@ -152,7 +190,7 @@ const PlatformerGame = ({
   };
   
   // Handle power-up collision detection
-  const checkPowerUpCollisions = (playerPosition: number) => {
+  const checkPowerUpCollisions = (playerX: number, playerY: number, actualPlayerHeight: number, gameHeight: number) => {
     powerUps.forEach((powerUp, index) => {
       // Remove off-screen power-ups
       if (powerUp.position + powerUpWidth < 0) {
@@ -160,7 +198,20 @@ const PlatformerGame = ({
         return;
       }
       
-      if (!powerUp.collected && isColliding(playerPosition, powerUp.position, powerUpWidth)) {
+      const powerUpX = powerUp.position;
+      const powerUpY = gameHeight - groundHeight - 60; // Position power-up above ground
+      const powerUpSize = 20;
+      
+      if (!powerUp.collected && checkPixelCollision(
+        playerX,
+        playerY,
+        playerWidth,
+        actualPlayerHeight,
+        powerUpX,
+        powerUpY,
+        powerUpSize,
+        powerUpSize
+      )) {
         // Automatically collect power-up
         setPowerUps(prev => prev.map((p, i) => 
           i === index ? { ...p, collected: true } : p
@@ -195,11 +246,6 @@ const PlatformerGame = ({
       if (onScoreChange) onScoreChange(newScore);
       return newScore;
     });
-  };
-  
-  // Helper to determine if two objects are colliding
-  const isColliding = (playerPos: number, objectPos: number, objectWidth: number) => {
-    return objectPos > playerPos - objectWidth && objectPos < playerPos + playerWidth;
   };
   
   // Game loop
@@ -372,6 +418,21 @@ const PlatformerGame = ({
     return (playerStatus.shieldTimeRemaining / 10000) * 100; // 10000ms is max shield time
   };
   
+  // Debug mode toggle for showing hitboxes
+  const [showHitboxes, setShowHitboxes] = useState(false);
+  
+  // Toggle hitboxes with D key
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.code === 'KeyD') {
+        setShowHitboxes(prev => !prev);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+  
   // Render the game
   return (
     <div 
@@ -385,7 +446,7 @@ const PlatformerGame = ({
     >
       {/* Game info overlay */}
       <div className="absolute top-2 left-2 font-pixel text-retro-neon-green text-xs">
-        SCORE: {score}
+        SCORE: {score} {showHitboxes && '(DEBUG: ON)'}
       </div>
       
       {gameOver && (
@@ -432,6 +493,11 @@ const PlatformerGame = ({
         {playerStatus.hasShield && (
           <div className="absolute inset-0 border-2 border-retro-neon-blue rounded-sm animate-pulse" />
         )}
+        
+        {/* Hitbox (debug) */}
+        {showHitboxes && (
+          <div className="absolute inset-0 border-2 border-red-500 rounded-sm" />
+        )}
       </div>
       
       {/* Shield timer */}
@@ -449,7 +515,7 @@ const PlatformerGame = ({
         <div 
           key={index}
           className={cn(
-            "absolute bottom-10 z-5",
+            "absolute z-5",
             obstacle.type === 'cactus' ? "bg-retro-neon-green" : "bg-retro-neon-yellow",
           )}
           style={{
@@ -461,9 +527,14 @@ const PlatformerGame = ({
             boxShadow: obstacle.type === 'cactus' 
               ? '0 0 8px rgba(0,255,0,0.7)' 
               : '0 0 8px rgba(255,255,0,0.7)',
-            bottom: obstacle.type === 'bird' ? '40px' : '10px',
+            bottom: obstacle.type === 'bird' ? '40px' : `${groundHeight}px`,
           }}
-        />
+        >
+          {/* Hitbox (debug) */}
+          {showHitboxes && (
+            <div className="absolute inset-0 border-2 border-red-500 rounded-sm" />
+          )}
+        </div>
       ))}
       
       {/* Coins */}
@@ -474,7 +545,7 @@ const PlatformerGame = ({
             className="absolute"
             style={{
               left: `${coin.position}px`,
-              bottom: '60px',
+              bottom: `${groundHeight + 50}px`,
               width: '15px',
               height: '15px',
               backgroundColor: '#FFEB3B',
@@ -483,7 +554,12 @@ const PlatformerGame = ({
               boxShadow: '0 0 10px rgba(255,235,59,0.9)',
               animation: 'pixel-pulse 0.5s infinite alternate'
             }}
-          />
+          >
+            {/* Hitbox (debug) */}
+            {showHitboxes && (
+              <div className="absolute inset-0 border-2 border-blue-500 rounded-sm" />
+            )}
+          </div>
         )
       ))}
       
@@ -495,7 +571,7 @@ const PlatformerGame = ({
             className="absolute"
             style={{
               left: `${powerUp.position}px`,
-              bottom: '60px',
+              bottom: `${groundHeight + 50}px`,
               width: '20px',
               height: '20px',
               backgroundColor: '#00FFFF',
@@ -510,6 +586,11 @@ const PlatformerGame = ({
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-6 h-6 border-t-2 border-r-2 border-l-2 border-retro-arcade-black rounded-t-full transform rotate-180" />
               </div>
+            )}
+            
+            {/* Hitbox (debug) */}
+            {showHitboxes && (
+              <div className="absolute inset-0 border-2 border-blue-500 rounded-sm" />
             )}
           </div>
         )
