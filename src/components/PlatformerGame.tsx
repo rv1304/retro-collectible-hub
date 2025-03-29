@@ -1,5 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { useGameLogic } from '@/hooks/useGameLogic';
+import { useGameControls } from '@/hooks/useGameControls';
+import { GameObstacle, GameCoin } from '@/types/gameTypes';
 
 interface PlatformerGameProps {
   className?: string;
@@ -16,55 +20,215 @@ const PlatformerGame = ({
   onHeartLost,
   onCoinCollected 
 }: PlatformerGameProps) => {
-  // Game state
-  const [isJumping, setIsJumping] = useState(false);
-  const [isDucking, setIsDucking] = useState(false);
-  const [score, setScore] = useState(0);
-  const [gameOver, setGameOver] = useState(false);
-  const [obstacles, setObstacles] = useState<{type: 'cactus' | 'bird'; position: number}[]>([]);
-  const [coins, setCoins] = useState<{position: number; collected: boolean}[]>([]);
-  const [groundPosition, setGroundPosition] = useState(0);
-  const [gameSpeed, setGameSpeed] = useState(5);
   const gameRef = useRef<HTMLDivElement>(null);
-  const frameRef = useRef(0);
-  const lastObstacleRef = useRef(0);
-  const lastCoinRef = useRef(0);
   
-  // Game dimensions
+  // Use custom hooks for game logic and controls
+  const {
+    isJumping,
+    isDucking,
+    score,
+    gameOver,
+    obstacles,
+    coins,
+    groundPosition,
+    gameSpeed,
+    resetGame,
+    setIsJumping,
+    setIsDucking,
+    setGameOver,
+    setObstacles,
+    setCoins,
+    setGroundPosition,
+    setGameSpeed,
+    setScore,
+    frameRef,
+    lastObstacleRef,
+    lastCoinRef
+  } = useGameLogic({ onScoreChange });
+  
+  const { handleJump, handleDuck } = useGameControls({
+    isJumping,
+    gameOver,
+    setIsJumping,
+    setIsDucking
+  });
+  
+  // Game dimensions - could be moved to a constants file in a larger project
   const playerWidth = 30;
   const playerHeight = 40;
   const playerBottom = 10;
   const obstacleWidth = 25;
   
-  // Reset the game
-  const resetGame = () => {
-    setIsJumping(false);
-    setIsDucking(false);
-    setScore(0);
-    setGameOver(false);
-    setObstacles([]);
-    setCoins([]);
-    setGroundPosition(0);
-    setGameSpeed(5);
-    lastObstacleRef.current = 0;
-    lastCoinRef.current = 0;
+  // Check for collisions between player and game elements
+  const checkCollision = () => {
+    if (!gameRef.current) return;
     
-    if (onScoreChange) onScoreChange(0);
+    const gameWidth = gameRef.current.offsetWidth;
+    const playerPosition = 60; // Fixed x position of player
+    
+    // Check obstacle collisions
+    checkObstacleCollisions(playerPosition);
+    
+    // Check coin collisions
+    checkCoinCollisions(playerPosition);
   };
   
-  // Jump function
-  const handleJump = () => {
-    if (!isJumping && !gameOver) {
-      setIsJumping(true);
-      setTimeout(() => setIsJumping(false), 600);
+  // Handle obstacle collision detection
+  const checkObstacleCollisions = (playerPosition: number) => {
+    obstacles.forEach((obstacle, index) => {
+      // Remove off-screen obstacles
+      if (obstacle.position + obstacleWidth < 0) {
+        setObstacles(prev => prev.filter((_, i) => i !== index));
+        return;
+      }
+      
+      if (isColliding(playerPosition, obstacle.position, obstacleWidth)) {
+        const playerCurrentHeight = isDucking ? playerHeight / 2 : playerHeight;
+        const obstacleTop = obstacle.type === 'bird' ? 50 : 100 - playerBottom - obstacleWidth;
+        
+        const birdCollision = obstacle.type === 'bird' && !isDucking && !isJumping;
+        const cactusCollision = obstacle.type === 'cactus' && !isJumping;
+        
+        if ((birdCollision || cactusCollision) && !gameOver) {
+          setGameOver(true);
+          if (onHeartLost) onHeartLost();
+          if (onGameOver) onGameOver();
+        }
+      }
+    });
+  };
+  
+  // Handle coin collision detection
+  const checkCoinCollisions = (playerPosition: number) => {
+    coins.forEach((coin, index) => {
+      // Remove off-screen coins
+      if (coin.position + 20 < 0) {
+        setCoins(prev => prev.filter((_, i) => i !== index));
+        return;
+      }
+      
+      if (!coin.collected && isColliding(playerPosition, coin.position, 20)) {
+        // Automatically collect coin
+        setCoins(prev => prev.map((c, i) => 
+          i === index ? { ...c, collected: true } : c
+        ));
+        
+        // Update score and trigger coin collection callback
+        updateScoreForCoinCollection();
+        
+        // Trigger coin collection callback
+        if (onCoinCollected) {
+          onCoinCollected(1);  // Collect 1 coin
+        }
+      }
+    });
+  };
+  
+  // Update score when collecting a coin
+  const updateScoreForCoinCollection = () => {
+    setScore(prev => {
+      const newScore = prev + 50;
+      if (onScoreChange) onScoreChange(newScore);
+      return newScore;
+    });
+  };
+  
+  // Helper to determine if two objects are colliding
+  const isColliding = (playerPos: number, objectPos: number, objectWidth: number) => {
+    return objectPos > playerPos - objectWidth && objectPos < playerPos + playerWidth;
+  };
+  
+  // Game loop
+  useEffect(() => {
+    if (gameOver) return;
+    
+    const gameLoop = () => {
+      // Move ground
+      setGroundPosition(prev => (prev - gameSpeed) % 100);
+      
+      // Increase score over time
+      incrementScore();
+      
+      // Generate and manage game elements
+      generateObstacles();
+      generateCoins();
+      moveGameElements();
+      
+      // Check for collisions
+      checkCollision();
+      
+      // Continue game loop
+      frameRef.current = requestAnimationFrame(gameLoop);
+    };
+    
+    frameRef.current = requestAnimationFrame(gameLoop);
+    
+    return () => {
+      cancelAnimationFrame(frameRef.current);
+    };
+  }, [gameOver, isDucking, isJumping]);
+  
+  // Increment score and adjust game speed
+  const incrementScore = () => {
+    setScore(prev => {
+      const newScore = prev + 1;
+      if (onScoreChange) onScoreChange(newScore);
+      
+      // Increase game speed every 500 points
+      if (newScore % 500 === 0) {
+        setGameSpeed(prev => Math.min(prev + 1, 15));
+      }
+      
+      return newScore;
+    });
+  };
+  
+  // Generate obstacles
+  const generateObstacles = () => {
+    const now = Date.now();
+    if (now - lastObstacleRef.current > 1500 + Math.random() * 1000) {
+      lastObstacleRef.current = now;
+      
+      // 30% chance of bird, 70% chance of cactus
+      const type = Math.random() < 0.3 ? 'bird' : 'cactus';
+      
+      setObstacles(prev => [
+        ...prev, 
+        { type, position: gameRef.current?.offsetWidth || 800 }
+      ]);
     }
   };
   
-  // Duck function
-  const handleDuck = (isDucking: boolean) => {
-    if (!gameOver && !isJumping) {
-      setIsDucking(isDucking);
+  // Generate coins
+  const generateCoins = () => {
+    const now = Date.now();
+    if (now - lastCoinRef.current > 2000 + Math.random() * 2000) {
+      lastCoinRef.current = now;
+      
+      setCoins(prev => [
+        ...prev, 
+        { position: gameRef.current?.offsetWidth || 800, collected: false }
+      ]);
     }
+  };
+  
+  // Move obstacles and coins
+  const moveGameElements = () => {
+    // Move obstacles
+    setObstacles(prev => 
+      prev.map(obstacle => ({
+        ...obstacle,
+        position: obstacle.position - gameSpeed
+      }))
+    );
+    
+    // Move coins
+    setCoins(prev => 
+      prev.map(coin => ({
+        ...coin,
+        position: coin.position - gameSpeed
+      }))
+    );
   };
   
   // Handle key presses
@@ -94,154 +258,7 @@ const PlatformerGame = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isJumping, gameOver]);
-  
-  // Detect collisions
-  const checkCollision = () => {
-    if (gameRef.current) {
-      const gameWidth = gameRef.current.offsetWidth;
-      const playerPosition = 60; // Fixed x position of player
-      
-      obstacles.forEach((obstacle, index) => {
-        const obstaclePosition = obstacle.position;
-        
-        if (
-          obstaclePosition > playerPosition - obstacleWidth && 
-          obstaclePosition < playerPosition + playerWidth
-        ) {
-          // More precise collision detection
-          const playerCurrentHeight = isDucking ? playerHeight / 2 : playerHeight;
-          const playerTop = 100 - playerBottom - playerCurrentHeight;
-          
-          const obstacleTop = obstacle.type === 'bird' ? 50 : 100 - playerBottom - obstacleWidth;
-          
-          const birdCollision = obstacle.type === 'bird' && !isDucking && !isJumping;
-          const cactusCollision = obstacle.type === 'cactus' && !isJumping;
-          
-          if (birdCollision || cactusCollision) {
-            if (!gameOver) {
-              setGameOver(true);
-              if (onHeartLost) onHeartLost();
-              if (onGameOver) onGameOver();
-            }
-          }
-        }
-        
-        // Remove off-screen obstacles
-        if (obstaclePosition + obstacleWidth < 0) {
-          setObstacles(prev => prev.filter((_, i) => i !== index));
-        }
-      });
-      
-      // Enhanced coin collection logic
-      coins.forEach((coin, index) => {
-        const coinPosition = coin.position;
-        
-        if (
-          !coin.collected &&
-          coinPosition > playerPosition - 20 && 
-          coinPosition < playerPosition + playerWidth
-        ) {
-          // Automatically collect coin
-          setCoins(prev => prev.map((c, i) => 
-            i === index ? { ...c, collected: true } : c
-          ));
-          
-          // Update score and trigger coin collection callback
-          setScore(prev => {
-            const newScore = prev + 50;
-            if (onScoreChange) onScoreChange(newScore);
-            return newScore;
-          });
-          
-          // Trigger coin collection callback
-          if (onCoinCollected) {
-            onCoinCollected(1);  // Collect 1 coin
-          }
-        }
-        
-        // Remove off-screen coins
-        if (coinPosition + 20 < 0) {
-          setCoins(prev => prev.filter((_, i) => i !== index));
-        }
-      });
-    }
-  };
-  
-  // Game loop
-  useEffect(() => {
-    if (gameOver) return;
-    
-    const gameLoop = () => {
-      // Move ground
-      setGroundPosition(prev => (prev - gameSpeed) % 100);
-      
-      // Increase score over time
-      setScore(prev => {
-        const newScore = prev + 1;
-        if (onScoreChange) onScoreChange(newScore);
-        
-        // Increase game speed every 500 points
-        if (newScore % 500 === 0) {
-          setGameSpeed(prev => Math.min(prev + 1, 15));
-        }
-        
-        return newScore;
-      });
-      
-      // Generate obstacles
-      const now = Date.now();
-      if (now - lastObstacleRef.current > 1500 + Math.random() * 1000) {
-        lastObstacleRef.current = now;
-        
-        // 30% chance of bird, 70% chance of cactus
-        const type = Math.random() < 0.3 ? 'bird' : 'cactus';
-        
-        setObstacles(prev => [
-          ...prev, 
-          { type, position: gameRef.current?.offsetWidth || 800 }
-        ]);
-      }
-      
-      // Generate coins
-      if (now - lastCoinRef.current > 2000 + Math.random() * 2000) {
-        lastCoinRef.current = now;
-        
-        setCoins(prev => [
-          ...prev, 
-          { position: gameRef.current?.offsetWidth || 800, collected: false }
-        ]);
-      }
-      
-      // Move obstacles
-      setObstacles(prev => 
-        prev.map(obstacle => ({
-          ...obstacle,
-          position: obstacle.position - gameSpeed
-        }))
-      );
-      
-      // Move coins
-      setCoins(prev => 
-        prev.map(coin => ({
-          ...coin,
-          position: coin.position - gameSpeed
-        }))
-      );
-      
-      // Check for collisions
-      checkCollision();
-      
-      // Continue game loop
-      frameRef.current = requestAnimationFrame(gameLoop);
-    };
-    
-    frameRef.current = requestAnimationFrame(gameLoop);
-    
-    return () => {
-      cancelAnimationFrame(frameRef.current);
-    };
-  }, [gameOver, isDucking, isJumping]);
+  }, [isJumping, gameOver, handleJump, handleDuck, resetGame]);
   
   // Clean up on unmount
   useEffect(() => {
@@ -250,6 +267,7 @@ const PlatformerGame = ({
     };
   }, []);
   
+  // Render the game
   return (
     <div 
       ref={gameRef}
