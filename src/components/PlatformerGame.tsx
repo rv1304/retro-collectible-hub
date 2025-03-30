@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useGameLogic } from '@/hooks/useGameLogic';
@@ -114,6 +115,92 @@ const PlatformerGame = ({
       setJumpProgress(0);
     }
   }, [isJumping]);
+  
+  // Define all functions used in the dependency array below
+  // before the useEffect that uses them
+  
+  // Function to increment the score
+  const incrementScore = () => {
+    setScore(prev => {
+      const newScore = prev + 1;
+      if (onScoreChange) onScoreChange(newScore);
+      
+      if (newScore % 500 === 0) {
+        setGameSpeed(prev => Math.min(prev + 1, 15));
+      }
+      
+      return newScore;
+    });
+  };
+  
+  // Function to generate obstacles
+  const generateObstacles = () => {
+    const now = Date.now();
+    if (now - lastObstacleRef.current > 1500 + Math.random() * 1000) {
+      lastObstacleRef.current = now;
+      
+      const type = Math.random() < 0.3 ? 'bird' : 'cactus';
+      
+      setObstacles(prev => [
+        ...prev, 
+        { type, position: gameRef.current?.offsetWidth || 800 }
+      ]);
+    }
+  };
+  
+  // Function to generate coins
+  const generateCoins = () => {
+    const now = Date.now();
+    if (now - lastCoinRef.current > 2000 + Math.random() * 2000) {
+      lastCoinRef.current = now;
+      
+      setCoins(prev => [
+        ...prev, 
+        { position: gameRef.current?.offsetWidth || 800, collected: false }
+      ]);
+    }
+  };
+  
+  // Function to generate power-ups
+  const generatePowerUps = () => {
+    const now = Date.now();
+    if (now - lastPowerUpRef.current > 10000 + Math.random() * 10000) {
+      lastPowerUpRef.current = now;
+      
+      setPowerUps(prev => [
+        ...prev, 
+        { 
+          type: 'shield',
+          position: gameRef.current?.offsetWidth || 800, 
+          collected: false 
+        }
+      ]);
+    }
+  };
+  
+  // Function to move game elements
+  const moveGameElements = () => {
+    setObstacles(prev => 
+      prev.map(obstacle => ({
+        ...obstacle,
+        position: obstacle.position - gameSpeed
+      }))
+    );
+    
+    setCoins(prev => 
+      prev.map(coin => ({
+        ...coin,
+        position: coin.position - gameSpeed
+      }))
+    );
+    
+    setPowerUps(prev => 
+      prev.map(powerUp => ({
+        ...powerUp,
+        position: powerUp.position - gameSpeed
+      }))
+    );
+  };
   
   const checkCollision = () => {
     if (!gameRef.current) return;
@@ -251,6 +338,7 @@ const PlatformerGame = ({
     });
   };
   
+  // Game loop effect - now all functions it depends on are defined before it
   useEffect(() => {
     if (gameOver) return;
     
@@ -281,85 +369,7 @@ const PlatformerGame = ({
     return () => {
       cancelAnimationFrame(frameRef.current);
     };
-  }, [gameOver, isDucking, isJumping, playerStatus, updateShieldTimer, gameSpeed, setGroundPosition, incrementScore, generateObstacles, generateCoins, generatePowerUps, moveGameElements, checkCollision]);
-  
-  const incrementScore = () => {
-    setScore(prev => {
-      const newScore = prev + 1;
-      if (onScoreChange) onScoreChange(newScore);
-      
-      if (newScore % 500 === 0) {
-        setGameSpeed(prev => Math.min(prev + 1, 15));
-      }
-      
-      return newScore;
-    });
-  };
-  
-  const generateObstacles = () => {
-    const now = Date.now();
-    if (now - lastObstacleRef.current > 1500 + Math.random() * 1000) {
-      lastObstacleRef.current = now;
-      
-      const type = Math.random() < 0.3 ? 'bird' : 'cactus';
-      
-      setObstacles(prev => [
-        ...prev, 
-        { type, position: gameRef.current?.offsetWidth || 800 }
-      ]);
-    }
-  };
-  
-  const generateCoins = () => {
-    const now = Date.now();
-    if (now - lastCoinRef.current > 2000 + Math.random() * 2000) {
-      lastCoinRef.current = now;
-      
-      setCoins(prev => [
-        ...prev, 
-        { position: gameRef.current?.offsetWidth || 800, collected: false }
-      ]);
-    }
-  };
-  
-  const generatePowerUps = () => {
-    const now = Date.now();
-    if (now - lastPowerUpRef.current > 10000 + Math.random() * 10000) {
-      lastPowerUpRef.current = now;
-      
-      setPowerUps(prev => [
-        ...prev, 
-        { 
-          type: 'shield',
-          position: gameRef.current?.offsetWidth || 800, 
-          collected: false 
-        }
-      ]);
-    }
-  };
-  
-  const moveGameElements = () => {
-    setObstacles(prev => 
-      prev.map(obstacle => ({
-        ...obstacle,
-        position: obstacle.position - gameSpeed
-      }))
-    );
-    
-    setCoins(prev => 
-      prev.map(coin => ({
-        ...coin,
-        position: coin.position - gameSpeed
-      }))
-    );
-    
-    setPowerUps(prev => 
-      prev.map(powerUp => ({
-        ...powerUp,
-        position: powerUp.position - gameSpeed
-      }))
-    );
-  };
+  }, [gameOver, isDucking, isJumping, playerStatus, updateShieldTimer, gameSpeed, setGroundPosition]);
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
