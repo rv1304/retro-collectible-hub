@@ -64,16 +64,14 @@ const PlatformerGame = ({
   
   const playerWidth = 30;
   const playerHeight = 40;
-  const playerBottom = 10;
+  const playerBottom = 40;
   const groundHeight = 10;
   const obstacleWidth = 25;
   const powerUpWidth = 25;
   
-  // Animation progress state
   const [jumpProgress, setJumpProgress] = useState(0);
   const jumpAnimationRef = useRef<Animation | null>(null);
   
-  // Update the getPlayerY function to use the jumpProgress state
   const getPlayerY = () => {
     if (!isJumping) return playerBottom;
     
@@ -82,7 +80,6 @@ const PlatformerGame = ({
     return playerBottom + height;
   };
   
-  // Effect to track jump animation progress
   useEffect(() => {
     if (isJumping) {
       const jumpElement = document.querySelector('.animate-player-jump');
@@ -91,9 +88,7 @@ const PlatformerGame = ({
         if (animations.length > 0) {
           jumpAnimationRef.current = animations[0];
           
-          // Set up a callback to update jump progress
           const updateProgress = () => {
-            // Calculate a value between 0 and 1 based on current time and duration
             const animation = jumpAnimationRef.current;
             if (animation) {
               const currentTime = animation.currentTime || 0;
@@ -115,7 +110,6 @@ const PlatformerGame = ({
     }
   }, [isJumping]);
   
-  // Function to increment the score
   const incrementScore = () => {
     setScore(prev => {
       const newScore = prev + 1;
@@ -129,7 +123,6 @@ const PlatformerGame = ({
     });
   };
   
-  // Function to generate obstacles
   const generateObstacles = () => {
     const now = Date.now();
     if (now - lastObstacleRef.current > 1500 + Math.random() * 1000) {
@@ -144,7 +137,6 @@ const PlatformerGame = ({
     }
   };
   
-  // Function to generate coins
   const generateCoins = () => {
     const now = Date.now();
     if (now - lastCoinRef.current > 2000 + Math.random() * 2000) {
@@ -157,7 +149,6 @@ const PlatformerGame = ({
     }
   };
   
-  // Function to generate power-ups
   const generatePowerUps = () => {
     const now = Date.now();
     if (now - lastPowerUpRef.current > 10000 + Math.random() * 10000) {
@@ -174,7 +165,6 @@ const PlatformerGame = ({
     }
   };
   
-  // Function to move game elements
   const moveGameElements = () => {
     setObstacles(prev => 
       prev.map(obstacle => ({
@@ -334,7 +324,6 @@ const PlatformerGame = ({
     });
   };
   
-  // Game loop effect - now all functions it depends on are defined before it
   useEffect(() => {
     if (gameOver) return;
     
@@ -502,7 +491,7 @@ const PlatformerGame = ({
             boxShadow: obstacle.type === 'cactus' 
               ? '0 0 8px rgba(0,255,0,0.7)' 
               : '0 0 8px rgba(255,255,0,0.7)',
-            bottom: obstacle.type === 'bird' ? '40px' : `${groundHeight}px`,
+            bottom: obstacle.type === 'bird' ? `${playerBottom + 30}px` : `${groundHeight + playerBottom}px`,
           }}
         >
           {showHitboxes && (
