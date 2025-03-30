@@ -69,15 +69,51 @@ const PlatformerGame = ({
   const obstacleWidth = 25;
   const powerUpWidth = 25;
   
+  // Animation progress state
+  const [jumpProgress, setJumpProgress] = useState(0);
+  const jumpAnimationRef = useRef<Animation | null>(null);
+  
+  // Update the getPlayerY function to use the jumpProgress state
   const getPlayerY = () => {
     if (!isJumping) return playerBottom;
     
-    const jumpProgress = document.querySelector('.animate-player-jump')?.getAnimations()?.[0]?.progress ?? 0;
     const jumpHeight = 80;
-    
     const height = 4 * jumpHeight * jumpProgress * (1 - jumpProgress);
     return playerBottom + height;
   };
+  
+  // Effect to track jump animation progress
+  useEffect(() => {
+    if (isJumping) {
+      const jumpElement = document.querySelector('.animate-player-jump');
+      if (jumpElement) {
+        const animations = jumpElement.getAnimations();
+        if (animations.length > 0) {
+          jumpAnimationRef.current = animations[0];
+          
+          // Set up a callback to update jump progress
+          const updateProgress = () => {
+            // Calculate a value between 0 and 1 based on current time and duration
+            const animation = jumpAnimationRef.current;
+            if (animation) {
+              const currentTime = animation.currentTime || 0;
+              const totalDuration = animation.effect?.getTiming().duration || 600;
+              const normalizedProgress = Math.min(1, Math.max(0, currentTime as number / (totalDuration as number)));
+              setJumpProgress(normalizedProgress);
+            }
+            
+            if (isJumping) {
+              requestAnimationFrame(updateProgress);
+            }
+          };
+          
+          requestAnimationFrame(updateProgress);
+        }
+      }
+    } else {
+      setJumpProgress(0);
+    }
+  }, [isJumping]);
   
   const checkCollision = () => {
     if (!gameRef.current) return;
@@ -245,7 +281,7 @@ const PlatformerGame = ({
     return () => {
       cancelAnimationFrame(frameRef.current);
     };
-  }, [gameOver, isDucking, isJumping, playerStatus]);
+  }, [gameOver, isDucking, isJumping, playerStatus, updateShieldTimer, gameSpeed, setGroundPosition, incrementScore, generateObstacles, generateCoins, generatePowerUps, moveGameElements, checkCollision]);
   
   const incrementScore = () => {
     setScore(prev => {
