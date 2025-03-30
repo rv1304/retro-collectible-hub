@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useGameLogic } from '@/hooks/useGameLogic';
@@ -115,9 +114,6 @@ const PlatformerGame = ({
       setJumpProgress(0);
     }
   }, [isJumping]);
-  
-  // Define all functions used in the dependency array below
-  // before the useEffect that uses them
   
   // Function to increment the score
   const incrementScore = () => {
