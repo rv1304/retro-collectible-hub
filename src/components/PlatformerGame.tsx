@@ -491,7 +491,7 @@ const PlatformerGame = ({
             boxShadow: obstacle.type === 'cactus' 
               ? '0 0 8px rgba(0,255,0,0.7)' 
               : '0 0 8px rgba(255,255,0,0.7)',
-            bottom: obstacle.type === 'bird' ? `${playerBottom + 30}px` : `${groundHeight + playerBottom}px`,
+            bottom: obstacle.type === 'bird' ? `${playerBottom + 30}px` : `${groundHeight}px`,
           }}
         >
           {showHitboxes && (
